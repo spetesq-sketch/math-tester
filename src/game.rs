@@ -1,13 +1,16 @@
 // game
 
 use rand::RngExt;
+use rand::seq::IndexedRandom;
+use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub struct Stats {
-    amount: usize,
-    correct: usize,
-    wrong: usize,
+    pub amount: usize,
+    pub correct: usize,
+    pub wrong: usize,
+    pub time: Duration,
 }
 impl Stats {
     fn new(amount: usize) -> Self {
@@ -15,6 +18,7 @@ impl Stats {
             amount,
             correct: 0,
             wrong: 0,
+            time: Duration::ZERO,
         }
     }
 }
@@ -22,7 +26,7 @@ impl Stats {
 #[derive(Debug)]
 pub enum AnswerType {
     Correct,
-    Wrong,
+    Wrong(f32),
 }
 
 #[derive(Debug)]
@@ -40,6 +44,9 @@ pub enum Respond {
 #[derive(Copy, Clone, Debug)]
 pub enum ExampleType {
     Addiction,
+    Subtraction,
+    Multiplication,
+    Division,
 }
 
 #[derive(Debug, Clone)]
@@ -66,10 +73,17 @@ pub struct Game {
     pub amount: usize,
     pub examples: Vec<Example>,
     pub stats: Stats,
+    pub digit_after_point: usize,
 }
 
 impl Game {
-    pub fn new(domain_first: Domain, domain_second: Domain, amount: usize) -> Self {
+    pub fn new(
+        domain_first: Domain,
+        domain_second: Domain,
+        amount: usize,
+        example_types: Vec<ExampleType>,
+        digit: usize,
+    ) -> Self {
         let mut game = Game {
             domain_first,
             domain_second,
@@ -78,8 +92,9 @@ impl Game {
             amount,
             examples: Vec::new(),
             stats: Stats::new(amount),
+            digit_after_point: digit,
         };
-        game.generate();
+        game.generate(example_types);
         game.set_current();
         game
     }
@@ -87,13 +102,14 @@ impl Game {
         let (answer_type, elapsed_time) = {
             if let Some(example) = &mut self.current {
                 example.time = example.timer.elapsed();
+                self.stats.time += example.time;
 
                 let type_of_ans = if answer == example.answer {
                     self.stats.correct += 1;
                     AnswerType::Correct
                 } else {
                     self.stats.wrong += 1;
-                    AnswerType::Wrong
+                    AnswerType::Wrong(example.answer)
                 };
 
                 (type_of_ans, example.time)
@@ -117,16 +133,18 @@ impl Game {
         self.set_current();
         if let Some(example) = &mut self.current {
             example.timer = Instant::now();
-            return true;
+            true
         } else {
-            return false;
+            false
         }
     }
 
-    fn generate(&mut self) {
+    fn generate(&mut self, example_types: Vec<ExampleType>) {
+        let mut rng = rand::rng();
         for _example in 0..self.amount {
-            self.examples
-                .push(self.generate_example(ExampleType::Addiction))
+            if let Some(example_type) = example_types.choose(&mut rng) {
+                self.examples.push(self.generate_example(*example_type))
+            }
         }
     }
     fn set_current(&mut self) {
@@ -135,12 +153,17 @@ impl Game {
 
     fn generate_example(&self, example_type: ExampleType) -> Example {
         let mut rng = rand::rng();
+
         let first_num =
             rng.random_range(self.domain_first.from as u32..self.domain_first.to as u32) as f32;
         let second_num =
             rng.random_range(self.domain_second.from as u32..self.domain_second.to as u32) as f32;
+
         let operator = match example_type {
             ExampleType::Addiction => '+',
+            ExampleType::Subtraction => '-',
+            ExampleType::Multiplication => '*',
+            ExampleType::Division => '/',
         };
 
         Example {
@@ -148,12 +171,20 @@ impl Game {
             timer: Instant::now(),
             time: Duration::ZERO,
             example_type,
-            answer: get_answer(first_num, second_num, example_type),
+            answer: get_answer(first_num, second_num, example_type, self.digit_after_point),
         }
     }
 }
-fn get_answer(num1: f32, num2: f32, operator: ExampleType) -> f32 {
+fn get_answer(num1: f32, num2: f32, operator: ExampleType, digit: usize) -> f32 {
     match operator {
         ExampleType::Addiction => num1 + num2,
+        ExampleType::Subtraction => num1 - num2,
+        ExampleType::Multiplication => num1 * num2,
+        ExampleType::Division => {
+            let result = num1 / num2;
+            let multiplier = 10f32.powi(digit as i32);
+            let rounded = (result * multiplier).round() / multiplier;
+            rounded
+        }
     }
 }
