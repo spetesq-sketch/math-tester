@@ -8,18 +8,18 @@ use std::time::{Duration, Instant};
 
 #[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub struct Stats {
-    pub amount: usize,
-    pub correct: usize,
-    pub wrong: usize,
-    pub time: Duration,
+    pub total_amount: usize,
+    pub total_correct: usize,
+    pub total_wrong: usize,
+    pub total_time: Duration,
 }
 impl Stats {
     fn new(amount: usize) -> Self {
         Self {
-            amount,
-            correct: 0,
-            wrong: 0,
-            time: Duration::ZERO,
+            total_amount: amount,
+            total_correct: 0,
+            total_wrong: 0,
+            total_time: Duration::ZERO,
         }
     }
 }
@@ -110,12 +110,12 @@ impl Game {
             }
         };
 
-        self.stats.time += elapsed_time;
+        self.stats.total_time += elapsed_time;
         let resulting_type = if is_correct {
-            self.stats.correct += 1;
+            self.stats.total_correct += 1;
             AnswerType::Correct
         } else {
-            self.stats.wrong += 1;
+            self.stats.total_wrong += 1;
             AnswerType::Wrong { correct_answer }
         };
 

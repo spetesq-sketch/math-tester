@@ -1,15 +1,63 @@
 // main
+mod file_manager;
 mod game;
 mod input_helper;
 mod stats;
 
-use crate::game::{Domain, ExampleType};
+use crate::game::{Domain, ExampleType, Stats};
+use crate::stats::Statistic;
+use anyhow::{Context, Result};
 use clap::builder::StyledStr;
+use clap::{Parser, Subcommand};
 use crossterm::style::{StyledContent, Stylize};
 use game::AnswerType;
 use game::Game;
+use std::time::Duration;
 
-fn main() {
+#[derive(Parser)]
+#[command(author = "lixtr", version)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Run the game
+    Game,
+    /// Show statistic
+    Stat,
+}
+
+fn main() -> Result<()> {
+    let parser = Cli::parse();
+    match parser.command {
+        Command::Game => run_game_loop()?,
+        Command::Stat => {
+            let stat = Statistic::load()?;
+            print_statistic(stat.total_statistic);
+        }
+    }
+    Ok(())
+}
+
+fn print_statistic(stat: Stats) {
+    println!(" -- Total Statistic -- ");
+    println!("Total examples: {}", &stat.total_amount);
+    println!("Total time: {}", format_duration(stat.total_time));
+    println!("Total correct: {}", &stat.total_correct);
+    println!("Total wrong: {}", &stat.total_wrong);
+}
+fn format_duration(duration: Duration) -> String {
+    let total_secs = duration.as_secs();
+
+    let hours = total_secs / 3600;
+    let minutes = (total_secs % 3600) / 60;
+    let seconds = total_secs % 60;
+
+    format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+}
+fn run_game_loop() -> Result<()> {
     let mut game = set_start_params();
     let mut history = Vec::new();
     while let Some(current_example) = game.get_current() {
@@ -29,11 +77,15 @@ fn main() {
             }
             game::Respond::Finished(stats) => {
                 print_history(&history);
+                let mut stat = Statistic::load()?;
+                stat.add_stats(&stats);
+                stat.save()?;
                 println!("Finished!\n{:#?}", stats);
                 break;
             }
         }
     }
+    Ok(())
 }
 fn set_start_params() -> Game {
     let first_domain = read_domain(r#"Enter first domain like "0 100": "#);
