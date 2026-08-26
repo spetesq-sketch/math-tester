@@ -110,6 +110,7 @@ impl Game {
             }
         };
 
+        self.stats.time += elapsed_time;
         let resulting_type = if is_correct {
             self.stats.correct += 1;
             AnswerType::Correct
@@ -156,8 +157,6 @@ impl Game {
     }
 
     fn generate_example(&self, example_type: ExampleType, rng: &mut ThreadRng) -> Example {
-        let mut rng = rand::rng();
-
         let first_num = rng.random_range(self.domain_first.from..self.domain_first.to) as f32;
         let second_num = rng.random_range(self.domain_second.from..self.domain_second.to) as f32;
 
