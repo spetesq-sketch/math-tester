@@ -39,10 +39,10 @@ pub struct AnswerResult {
 #[derive(Debug)]
 pub enum Respond {
     Answer(AnswerResult),
-    Finished(Stats),
+    Finished(Option<AnswerResult>, Stats),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ExampleType {
     Addition,
     Subtraction,
@@ -93,7 +93,11 @@ impl Game {
             stats: Stats::new(amount),
             digit_after_point: digit,
         };
+
         game.generate(example_types);
+        if let Some(first) = game.examples.first_mut() {
+            first.timer = Some(Instant::now());
+        }
         game
     }
 
@@ -106,7 +110,7 @@ impl Game {
                 }
                 (answer == example.answer, example.answer, example.time)
             } else {
-                return Respond::Finished(self.stats);
+                return Respond::Finished(None, self.stats);
             }
         };
 
@@ -119,14 +123,16 @@ impl Game {
             AnswerType::Wrong { correct_answer }
         };
 
-        if !self.next() {
-            return Respond::Finished(self.stats);
-        }
-
-        Respond::Answer(AnswerResult {
+        let last_result = AnswerResult {
             answer_type: resulting_type,
             time: elapsed_time,
-        })
+        };
+
+        if !self.next() {
+            return Respond::Finished(Some(last_result), self.stats);
+        }
+
+        Respond::Answer(last_result)
     }
     fn next(&mut self) -> bool {
         self.current_index += 1;
@@ -185,8 +191,8 @@ fn get_answer(first_num: f32, second_num: f32, operator: ExampleType, digit: usi
         ExampleType::Division => {
             let result = first_num / second_num;
             let multiplier = 10f32.powi(digit as i32);
-            let rounded = (result * multiplier).round() / multiplier;
-            rounded
+
+            (result * multiplier).round() / multiplier
         }
     }
 }

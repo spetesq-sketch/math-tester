@@ -1,20 +1,22 @@
-// input helper
-
 use std::io::{self, Write};
 use std::str::FromStr;
 
 pub fn input<T>(prompt: &str) -> T
 where
     T: FromStr,
-    T::Err: std::fmt::Debug,
 {
-    print!("{}", prompt);
-    io::stdout().flush().expect("Failed");
+    loop {
+        print!("{}", prompt);
+        io::stdout().flush().expect("Failed to flush stdout");
 
-    let mut buffer = String::new();
-    io::stdin()
-        .read_line(&mut buffer)
-        .expect("Failed to read the line");
+        let mut buffer = String::new();
+        io::stdin()
+            .read_line(&mut buffer)
+            .expect("Failed to read line");
 
-    buffer.trim().parse::<T>().expect("Failed to parse")
+        match buffer.trim().parse::<T>() {
+            Ok(value) => return value,
+            Err(_) => println!("Invalid input. Please try again."),
+        }
+    }
 }

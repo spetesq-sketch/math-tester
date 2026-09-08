@@ -1,9 +1,8 @@
 use crate::game::Stats;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Statistic {
@@ -24,7 +23,7 @@ impl Statistic {
     }
     pub fn save(&self) -> Result<()> {
         let path = get_path();
-        fs::create_dir_all((&path.parent().unwrap()))?;
+        fs::create_dir_all(path.parent().unwrap() )?;
         let text_content = serde_json::to_string_pretty(&self)?;
         fs::write(&path, &text_content)?;
         Ok(())

@@ -1,13 +1,11 @@
 // main
-mod file_manager;
 mod game;
 mod input_helper;
 mod stats;
 
-use crate::game::{Domain, ExampleType, Stats};
+use crate::game::{AnswerResult, Domain, ExampleType, Stats};
 use crate::stats::Statistic;
-use anyhow::{Context, Result};
-use clap::builder::StyledStr;
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use crossterm::style::{StyledContent, Stylize};
 use game::AnswerType;
@@ -43,14 +41,13 @@ fn main() -> Result<()> {
 
 fn print_statistic(stat: Stats) {
     println!(" -- Total Statistic -- ");
-    println!("Total examples: {}", &stat.total_amount);
-    println!("Total time: {}", format_duration(stat.total_time));
-    println!("Total correct: {}", &stat.total_correct);
-    println!("Total wrong: {}", &stat.total_wrong);
+    println!("Examples: {}", stat.total_amount);
+    println!("Time: {}", format_duration(stat.total_time));
+    println!("Correct: {}", stat.total_correct);
+    println!("Wrong: {}", stat.total_wrong);
 }
 fn format_duration(duration: Duration) -> String {
     let total_secs = duration.as_secs();
-
     let hours = total_secs / 3600;
     let minutes = (total_secs % 3600) / 60;
     let seconds = total_secs % 60;
@@ -61,7 +58,6 @@ fn run_game_loop() -> Result<()> {
     let mut game = set_start_params();
     let mut history = Vec::new();
     while let Some(current_example) = game.get_current() {
-        print_history(&history);
         let user_answer: f32 = input_helper::input(&format!(
             "Enter answer  {} : ",
             current_example.text_example
@@ -69,31 +65,54 @@ fn run_game_loop() -> Result<()> {
         let result = game.check_answer(user_answer);
         match result {
             game::Respond::Answer(answer_result) => {
-                println!("Answer status: {:?}", answer_result);
+                print_answer_status(&answer_result);
                 match answer_result.answer_type {
                     AnswerType::Correct => history.push('█'.green()),
                     AnswerType::Wrong { .. } => history.push('█'.red()),
                 }
             }
-            game::Respond::Finished(stats) => {
+            game::Respond::Finished(result, stats) => {
+                if let Some(answer_result) = result {
+                    print_answer_status(&answer_result);
+                    match answer_result.answer_type {
+                        AnswerType::Correct => history.push('█'.green()),
+                        AnswerType::Wrong { .. } => history.push('█'.red()),
+                    }
+                }
                 print_history(&history);
                 let mut stat = Statistic::load()?;
                 stat.add_stats(&stats);
                 stat.save()?;
-                println!("Finished!\n{:#?}", stats);
+                println!("Finished!");
+                print_statistic(stats);
                 break;
             }
         }
     }
     Ok(())
 }
+
+fn print_answer_status(status: &AnswerResult) {
+    let time = format!("{:.2}", status.time.as_secs_f32());
+    let text = match status.answer_type {
+        AnswerType::Correct => format!("Correct! Time: {}", time),
+        AnswerType::Wrong { correct_answer } => {
+            format!("Wrong, correct: {} Time: {}", correct_answer, time)
+        }
+    };
+    println!("{text}");
+}
+
 fn set_start_params() -> Game {
     let first_domain = read_domain(r#"Enter first domain like "0 100": "#);
-    let second_domain = read_domain(r#"Enter first domain like "0 100": "#);
+    let second_domain = read_domain(r#"Enter second domain like "0 100": "#);
     let selected_types = read_example_types(
         "Enter types 1 - Addition 2 - Subtraction 3 - Multiplication 4 - Division: ",
     );
-    let precision = read_precision("Enter number of digit after point (default = 2): ");
+    let mut precision = 2_usize;
+    if selected_types.contains(&ExampleType::Division) {
+        precision = read_precision("Enter number of digit after point (default = 2): ");
+    }
     let amount = read_amount("Enter amount: ");
 
     Game::new(
@@ -104,7 +123,7 @@ fn set_start_params() -> Game {
         precision,
     )
 }
-fn print_history(history: &Vec<StyledContent<char>>) {
+fn print_history(history: &[StyledContent<char>]) {
     print!("History: ");
     for symbol in history {
         print!("{}", symbol);

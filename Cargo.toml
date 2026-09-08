@@ -1,15 +1,27 @@
 [package]
-name = "MathTester"
+name = "math-tester"
 version = "0.1.0"
 edition = "2024"
+authors = ["lixtr <spetesq@gmail.com>"]
+description = "A terminal-based mental math trainer"
+readme = "readme.md"
+repository = "https://github.com/spetesq-sketch/math-tester"
+license = "MIT"
+keywords = ["cli", "math", "terminal", "game", "trainer"]
+categories = ["command-line-utilities", "games"]
 
 [dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
-dirs = "6.0.0"
+dirs = "7.0.0"
 anyhow = "1.0.104"
 rand = "0.10.2"
 crossterm = "0.29.0"
 clap = { version = "4.6.6", features = ["derive"] }
-chrono = { version = "0.4.45", features = ["serde"] }
 
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
